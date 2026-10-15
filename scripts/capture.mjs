@@ -1,4 +1,4 @@
-// Headed Chrome capture harness on the second screen (x=1930, y=20) at 1920x1080.
+// Playwright capture harness at 1920x1080.
 // Captures 6 fixed camera angles + 3 mid-shake frames for the Builder/Critic gauntlet.
 // Usage: node scripts/capture.mjs <roundName> [url]
 import { chromium } from 'playwright-core';
@@ -10,11 +10,9 @@ const baseUrl = process.argv[3] || 'http://127.0.0.1:5192/?capture=1';
 const outDir = path.resolve('shots', roundName);
 fs.mkdirSync(outDir, { recursive: true });
 
-const chromePath = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
-
-// Second screen positioning (DISPLAY2: x >= 1920)
-const WX = 1930;
-const WY = 20;
+const chromePath = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+const WX = Number(process.env.CAPTURE_WX ?? 1930);
+const WY = Number(process.env.CAPTURE_WY ?? 20);
 
 const browser = await chromium.launch({
   executablePath: chromePath,

@@ -6,7 +6,7 @@ A miniature New York at night inside a glass snow globe on a walnut desk, built 
 
 **Watch it: https://starknightt.github.io/nyc-snow-globe/**
 
-**Code: https://github.com/StarKnightt/nyc-snow-globe**
+**Code: https://github.com/StarKnightt/nyc-snow-globe** · **Read the brief it was built from: [PROMPT.md](PROMPT.md)**
 
 It runs in browsers with WebGPU (Chrome and Edge look best) and falls back automatically to WebGL 2 where WebGPU is unavailable. On load it opens mid-shake with the city glowing and snow swirling through the dome.
 
@@ -67,13 +67,50 @@ CI builds with Node.js 22 and `pnpm` (`package.json` pins `pnpm@10.18.3`). The o
 
 ## Performance
 
-- Measured in Chrome on Windows (RTX 4060, `1920×1080`, WebGPU): **~5.0–5.2 ms median frame time** (`p95: 5.5–6.4 ms`, locked 60 fps on a 60 Hz display / ~192–200 fps uncapped), with **2 render pass draw calls** and ~150,483 triangles.
+- At `1920×1080` in WebGPU, a full blizzard frame takes **~5.0–5.2 ms median** (`p95: 5.5–6.4 ms`, locked 60 fps on a 60 Hz display / ~192–200 fps uncapped), with **2 render pass draw calls** and ~150,483 triangles.
 - After applying spherical water-lens magnification at boot, `batchManhattanStaticMeshes` in `src/main.ts` merges ~1,100 static city meshes by material and shadow flags into unified `BufferGeometry` batches, and merges all ~110 accumulatable rooftop snow caps into a single vertex-modulated mesh.
 - All 12 taxis share pre-merged per-material sub-geometries, and the snow system writes 4×4 matrices and RGB glints directly into typed `InstancedBufferAttribute` arrays.
 
+## The prompt
+
+The full starting prompt is in [PROMPT.md](PROMPT.md):
+
+```text
+Build a real-time 3D snow globe of New York in the browser. Three.js (WebGPU with WebGL fallback), Vite, use pnpm for everything. Everything is made in code: no downloaded models, textures, HDRIs or audio. Any sound is synthesized from math.
+
+Use these skills where they help:
+- github.com/cloudai-x/threejs-skills
+- github.com/dgreenheck/webgpu-claude-skill
+- github.com/majidmanzarpour/threejs-game-skills
+- skills.sh
+
+THE SCENE
+- A glass snow globe on a wooden desk, soft light from a window. Clean, premium product-shot feel.
+- Inside: a tiny winter Manhattan. Empire State Building as the hero, brownstones, a slice of snowy Central Park trees, and yellow taxis that actually drive along the streets.
+- The glass must read as real glass: refraction of the city through it, fresnel reflections of the room and window, a subtle caustic on the desk.
+- A heavy wooden or brass base with soft contact shadow.
+
+THE INTERACTION
+- Grab and drag the globe to shake it. Snow swirls hard with real momentum, then slowly settles back over the city, with flakes piling lightly on rooftops and trees.
+- Thousands of flakes, GPU particles, each with tumble and drift. The water inside has a slight lag and slosh.
+- Slow auto-orbit camera when idle, scroll to zoom in toward the street level and taxis.
+
+/loop
+Run this gauntlet until the critic finds nothing left to fix:
+1. Builder agent implements or improves the scene.
+2. Builder takes screenshots from 6 fixed camera angles plus 3 mid-shake frames.
+3. A separate critic agent (run sequentially, never in parallel) compares every screenshot against real photographs of glass snow globes, real Manhattan street photography in winter, and real product photography lighting. The critic lists every concrete difference that makes it look fake: glass thickness, refraction, snow size and density, building proportions, taxi color and scale, shadow softness, color temperature. No subjective "looks good" judgments, only differences from the real references.
+4. Builder fixes every item on the critic's list, then repeat from step 2.
+Log each round's list of problems and how many were fixed.
+
+WHEN DONE
+- Write a short README with how it was built and the number of critic rounds.
+- Make an OG image of the snow globe mid-shake, used as the GitHub repo's social preview.
+```
+
 ## How it was built
 
-It was built in Cursor over six builder and critic rounds. After each round, a headless Playwright harness (`scripts/capture.mjs`) captured nine `1920×1080` screenshots (six fixed camera angles around and inside the globe, plus three deterministic shake frames: impulse, peak blizzard and settling), and a separate critic agent—which saw only the screenshots—compared them against real photographs of snow globes and miniature cities:
+It was built in Cursor over six builder and critic rounds from the brief in [PROMPT.md](PROMPT.md). After each round, a Playwright harness (`scripts/capture.mjs`) captured nine `1920×1080` screenshots (six fixed camera angles around and inside the globe, plus three deterministic shake frames: impulse, peak blizzard and settling), and a separate critic agent—which saw only the screenshots—compared them against real photographs of snow globes and miniature cities:
 
 - **Round 1 (initial build & 16 fixes):** Built the procedural Manhattan snow globe and fixed 16 foundational issues across glass rim thickness, wood grain, Empire State and Chrysler crown geometry, brownstone stoops, Central Park terrain and snow density.
 - **Round 2 (10 optical & street-level fixes):** Bounded all 3D octahedron snow crystals strictly inside the spherical water wall, balanced wet asphalt roughness and raised granite curbs, added double-walled glass meniscus rings and a snow-dressed limestone plinth, counter-rotated the top water boundary against tilt, replaced disc snowdrifts with continuous undulating 3D snowbanks, added 16 fluted chrome ribs on the ESB mast and Nirosta steel arches on the Chrysler crown, built tapered sedan taxis on non-overlapping loops, and added fire hydrants, waste bins and winter pedestrians.
@@ -95,6 +132,7 @@ src/
 scripts/
   capture.mjs      Playwright 1080p multi-angle + shake capture and frame-time benchmark harness
 docs/              reference screenshots rendered from the final build
+PROMPT.md          the prompt the project was built from
 .github/workflows/ GitHub Pages deployment workflow
 ```
 
