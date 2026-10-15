@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>New York Winter Snow Globe — Real-Time 3D</title>
+    <link rel="icon" href="data:," />
+    <meta property="og:title" content="New York Winter Snow Globe — Real-Time 3D" />
+    <meta property="og:description" content="A cozy winter night 3D snow globe of glowing Manhattan in Three.js (WebGPU / WebGL)." />
+    <meta property="og:image" content="./og.png" />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #181412;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, sans-serif;
+      }
+      #app {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: grab;
+      }
+      canvas.dragging-globe {
+        cursor: grabbing;
+      }
+      #hud, #badge {
+        display: none !important;
+      }
+
+      /* Cozy Winter Night Startup Loader */
+      #loader {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background:
+          radial-gradient(circle at 50% 44%, rgba(255, 184, 92, 0.16) 0%, rgba(44, 32, 24, 0.55) 38%, rgba(22, 18, 16, 0.98) 100%),
+          #161210;
+        color: #f4dfb8;
+        transition:
+          opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+          transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+        will-change: opacity, transform;
+      }
+      #loader.is-loaded {
+        opacity: 0;
+        transform: scale(1.025);
+        pointer-events: none;
+      }
+      body.capture-mode #loader {
+        display: none !important;
+      }
+      .loader-emblem {
+        position: relative;
+        width: 156px;
+        height: 168px;
+        margin-bottom: 18px;
+        filter: drop-shadow(0 14px 36px rgba(255, 174, 66, 0.22));
+      }
+      .loader-emblem svg {
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+      }
+      @keyframes snowDriftA {
+        0% { transform: translate(0px, -8px); opacity: 0; }
+        25% { opacity: 0.95; }
+        80% { opacity: 0.85; }
+        100% { transform: translate(-5px, 46px); opacity: 0; }
+      }
+      @keyframes snowDriftB {
+        0% { transform: translate(0px, -10px); opacity: 0; }
+        30% { opacity: 0.9; }
+        75% { opacity: 0.8; }
+        100% { transform: translate(6px, 48px); opacity: 0; }
+      }
+      @keyframes windowPulse {
+        0%, 100% { opacity: 0.78; }
+        50% { opacity: 1; }
+      }
+      .flake-a {
+        animation: snowDriftA 3.1s ease-in-out infinite;
+      }
+      .flake-b {
+        animation: snowDriftB 3.6s ease-in-out infinite;
+      }
+      .d1 { animation-delay: -0.4s; }
+      .d2 { animation-delay: -1.2s; }
+      .d3 { animation-delay: -2.1s; }
+      .d4 { animation-delay: -2.8s; }
+      .city-windows {
+        animation: windowPulse 2.4s ease-in-out infinite;
+      }
+      .loader-title {
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: 0.34em;
+        padding-left: 0.34em;
+        color: #f4dfb8;
+        text-shadow: 0 2px 18px rgba(255, 184, 92, 0.35);
+        margin-bottom: 6px;
+      }
+      .loader-subtitle {
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.28em;
+        padding-left: 0.28em;
+        color: rgba(235, 206, 158, 0.66);
+        margin-bottom: 24px;
+      }
+      .loader-track {
+        width: 180px;
+        height: 3px;
+        border-radius: 999px;
+        background: rgba(255, 214, 153, 0.14);
+        overflow: hidden;
+        box-shadow: inset 0 1px 2px rgba(18, 12, 8, 0.6);
+        margin-bottom: 12px;
+      }
+      #loader-bar {
+        width: 8%;
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #d8892c 0%, #ffc466 60%, #ffe8b0 100%);
+        box-shadow: 0 0 12px rgba(255, 190, 88, 0.75);
+        transition: width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      #loader-status {
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: 0.06em;
+        color: rgba(244, 223, 184, 0.72);
+        min-height: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loader" role="status" aria-live="polite">
+      <div class="loader-emblem" aria-hidden="true">
+        <svg viewBox="0 0 160 172" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="cityGlow" cx="50%" cy="56%" r="48%">
+              <stop offset="0%" stop-color="#FFB84D" stop-opacity="0.46" />
+              <stop offset="58%" stop-color="#E68A2E" stop-opacity="0.16" />
+              <stop offset="100%" stop-color="#1A2232" stop-opacity="0" />
+            </radialGradient>
+            <radialGradient id="deskSpill" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#FFB84D" stop-opacity="0.38" />
+              <stop offset="70%" stop-color="#D47A22" stop-opacity="0.12" />
+              <stop offset="100%" stop-color="#181412" stop-opacity="0" />
+            </radialGradient>
+            <linearGradient id="brassCollar" x1="34" y1="120" x2="126" y2="120" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#8C6830" />
+              <stop offset="32%" stop-color="#E5C478" />
+              <stop offset="52%" stop-color="#FFF0BE" />
+              <stop offset="74%" stop-color="#CFA654" />
+              <stop offset="100%" stop-color="#7A5826" />
+            </linearGradient>
+            <linearGradient id="walnutPedestal" x1="26" y1="138" x2="134" y2="138" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#2A1910" />
+              <stop offset="28%" stop-color="#6B4228" />
+              <stop offset="52%" stop-color="#8A5636" />
+              <stop offset="78%" stop-color="#56341E" />
+              <stop offset="100%" stop-color="#26160E" />
+            </linearGradient>
+            <clipPath id="domeClip">
+              <circle cx="80" cy="74" r="56" />
+            </clipPath>
+          </defs>
+
+          <!-- Warm golden desk caustic spill beneath pedestal -->
+          <ellipse cx="80" cy="156" rx="64" ry="11" fill="url(#deskSpill)" />
+          <ellipse cx="80" cy="156" rx="48" ry="6.5" stroke="#FFBE5C" stroke-opacity="0.28" stroke-width="1" />
+
+          <!-- Interior globe night sky & warm golden city radiance -->
+          <circle cx="80" cy="74" r="56" fill="#182030" />
+          <circle cx="80" cy="74" r="54" fill="url(#cityGlow)" />
+
+          <g clip-path="url(#domeClip)">
+            <!-- Background Midtown Silhouettes -->
+            <rect x="36" y="78" width="14" height="40" fill="#252B38" />
+            <rect x="52" y="70" width="13" height="48" fill="#2A303E" />
+            <rect x="108" y="76" width="15" height="42" fill="#252B38" />
+
+            <!-- Chrysler Building Silhouette (Right) -->
+            <rect x="91" y="64" width="14" height="54" fill="#323846" />
+            <path d="M93 64 L98 50 L103 64 Z" fill="#C8B696" fill-opacity="0.85" />
+            <line x1="98" y1="40" x2="98" y2="51" stroke="#F4DFB8" stroke-width="1.2" stroke-linecap="round" />
+
+            <!-- Empire State Building Silhouette (Center-Left Hero) -->
+            <rect x="65" y="54" width="22" height="64" fill="#383436" />
+            <rect x="68" y="44" width="16" height="12" fill="#443D3C" />
+            <rect x="72" y="35" width="8" height="10" fill="#524844" />
+            <line x1="76" y1="21" x2="76" y2="35" stroke="#FFE4A8" stroke-width="1.4" stroke-linecap="round" />
+            <circle cx="76" cy="21" r="1.4" fill="#FF4B3A" />
+
+            <!-- Glowing Golden-Amber City Windows -->
+            <g class="city-windows" fill="#FFCA62">
+              <!-- ESB Windows -->
+              <rect x="68" y="58" width="2.2" height="3.2" rx="0.4" />
+              <rect x="72" y="58" width="2.2" height="3.2" rx="0.4" fill="#FFE8A8" />
+              <rect x="76" y="58" width="2.2" height="3.2" rx="0.4" />
+              <rect x="80" y="58" width="2.2" height="3.2" rx="0.4" fill="#FFA838" />
+              <rect x="68" y="64" width="2.2" height="3.2" rx="0.4" fill="#FFE8A8" />
+              <rect x="72" y="64" width="2.2" height="3.2" rx="0.4" />
+              <rect x="76" y="64" width="2.2" height="3.2" rx="0.4" fill="#FFA838" />
+              <rect x="80" y="64" width="2.2" height="3.2" rx="0.4" />
+              <rect x="68" y="70" width="2.2" height="3.2" rx="0.4" />
+              <rect x="72" y="70" width="2.2" height="3.2" rx="0.4" fill="#FFE8A8" />
+              <rect x="76" y="70" width="2.2" height="3.2" rx="0.4" />
+              <rect x="80" y="70" width="2.2" height="3.2" rx="0.4" />
+              <rect x="68" y="76" width="2.2" height="3.2" rx="0.4" fill="#FFA838" />
+              <rect x="72" y="76" width="2.2" height="3.2" rx="0.4" />
+              <rect x="76" y="76" width="2.2" height="3.2" rx="0.4" fill="#FFE8A8" />
+              <rect x="80" y="76" width="2.2" height="3.2" rx="0.4" />
+              <rect x="68" y="82" width="2.2" height="3.2" rx="0.4" />
+              <rect x="72" y="82" width="2.2" height="3.2" rx="0.4" />
+              <rect x="76" y="82" width="2.2" height="3.2" rx="0.4" fill="#FFA838" />
+              <rect x="80" y="82" width="2.2" height="3.2" rx="0.4" fill="#FFE8A8" />
+              <rect x="68" y="88" width="2.2" height="3.2" rx="0.4" fill="#FFE8A8" />
+              <rect x="72" y="88" width="2.2" height="3.2" rx="0.4" />
+              <rect x="76" y="88" width="2.2" height="3.2" rx="0.4" />
+              <rect x="80" y="88" width="2.2" height="3.2" rx="0.4" />
+              <rect x="71" y="47" width="2.2" height="3.5" rx="0.4" fill="#FFE8A8" />
+              <rect x="75" y="47" width="2.2" height="3.5" rx="0.4" />
+              <rect x="79" y="47" width="2.2" height="3.5" rx="0.4" fill="#FFE8A8" />
+              <rect x="74" y="38" width="4" height="3" rx="0.5" fill="#FFF0C2" />
+
+              <!-- Chrysler & Side Tower Windows -->
+              <rect x="94" y="68" width="2" height="2.8" rx="0.4" fill="#FFE8A8" />
+              <rect x="98" y="68" width="2" height="2.8" rx="0.4" />
+              <rect x="94" y="74" width="2" height="2.8" rx="0.4" />
+              <rect x="98" y="74" width="2" height="2.8" rx="0.4" fill="#FFA838" />
+              <rect x="94" y="80" width="2" height="2.8" rx="0.4" fill="#FFE8A8" />
+              <rect x="98" y="80" width="2" height="2.8" rx="0.4" />
+              <rect x="94" y="86" width="2" height="2.8" rx="0.4" />
+              <rect x="98" y="86" width="2" height="2.8" rx="0.4" fill="#FFE8A8" />
+              <rect x="55" y="75" width="2" height="2.8" rx="0.4" />
+              <rect x="59" y="75" width="2" height="2.8" rx="0.4" fill="#FFE8A8" />
+              <rect x="55" y="81" width="2" height="2.8" rx="0.4" fill="#FFA838" />
+              <rect x="59" y="81" width="2" height="2.8" rx="0.4" />
+              <rect x="40" y="83" width="2" height="2.8" rx="0.4" fill="#FFE8A8" />
+              <rect x="44" y="83" width="2" height="2.8" rx="0.4" />
+              <rect x="112" y="81" width="2" height="2.8" rx="0.4" />
+              <rect x="116" y="81" width="2" height="2.8" rx="0.4" fill="#FFE8A8" />
+            </g>
+
+            <!-- Snowy Ground Plinth Inside Globe -->
+            <path d="M22 108 Q80 101 138 108 L138 132 L22 132 Z" fill="#DCE4F0" />
+            <path d="M22 109 Q80 103 138 109 L138 116 L22 116 Z" fill="#FFF3D6" fill-opacity="0.7" />
+
+            <!-- Swirling Golden-Champagne Snowflakes Inside Dome -->
+            <g fill="#FFF4D8">
+              <circle class="flake-a d1" cx="48" cy="46" r="1.6" />
+              <circle class="flake-b d2" cx="62" cy="34" r="1.3" />
+              <circle class="flake-a d3" cx="88" cy="32" r="1.7" />
+              <circle class="flake-b d4" cx="106" cy="44" r="1.4" />
+              <circle class="flake-b d1" cx="42" cy="64" r="1.3" />
+              <circle class="flake-a d2" cx="114" cy="62" r="1.6" />
+              <circle class="flake-b d3" cx="56" cy="54" r="1.2" />
+              <circle class="flake-a d4" cx="94" cy="52" r="1.5" />
+            </g>
+          </g>
+
+          <!-- Double-Walled Borosilicate Glass Rim & Warm Side-Lamp Crescent Highlight -->
+          <circle cx="80" cy="74" r="56" stroke="#FFE2A8" stroke-opacity="0.55" stroke-width="1.6" />
+          <circle cx="80" cy="74" r="53.5" stroke="#9CC4F8" stroke-opacity="0.26" stroke-width="0.9" />
+          <path d="M33 46 A52 52 0 0 1 74 22" stroke="#FFF2CC" stroke-width="2.4" stroke-linecap="round" stroke-opacity="0.82" />
+          <path d="M126 52 A52 52 0 0 1 122 96" stroke="#88B8F0" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.45" />
+
+          <!-- Brushed Champagne Brass Collar -->
+          <path d="M40 115 C40 113 120 113 120 115 L124 125 C124 127 36 127 36 125 Z" fill="url(#brassCollar)" />
+
+          <!-- Turned American Walnut Pedestal Base -->
+          <path d="M34 125 L126 125 L133 149 C133 153 27 153 27 149 Z" fill="url(#walnutPedestal)" />
+          <path d="M29 146 C55 149 105 149 131 146" stroke="url(#brassCollar)" stroke-width="1.6" fill="none" />
+
+          <!-- Brass Nameplate on Base -->
+          <rect x="59" y="132" width="42" height="10" rx="1.5" fill="url(#brassCollar)" stroke="#4A3214" stroke-width="0.8" />
+        </svg>
+      </div>
+      <div class="loader-title">NEW YORK</div>
+      <div class="loader-subtitle">MANHATTAN · WINTER NIGHT</div>
+      <div class="loader-track">
+        <div id="loader-bar"></div>
+      </div>
+      <div id="loader-status">Initializing WebGPU…</div>
+    </div>
+    <div id="app"></div>
+    <div id="badge" aria-hidden="true"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "name": "nyc-snow-globe",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5192 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5193 --strictPort",
+    "typecheck": "tsc --noEmit",
+    "capture": "node scripts/capture.mjs"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.186.0",
+    "playwright-core": "^1.51.0",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0"
+  },
+  "packageManager": "pnpm@10.18.3"
+}
