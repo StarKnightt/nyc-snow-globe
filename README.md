@@ -143,5 +143,3 @@ Everything in the repository is generated in code; no third-party models, textur
 Built with Three.js (`three/webgpu` + TSL), Vite and TypeScript. Skills consulted during development: [cloudai-x/threejs-skills](https://github.com/cloudai-x/threejs-skills), [dgreenheck/webgpu-claude-skill](https://github.com/dgreenheck/webgpu-claude-skill), [majidmanzarpour/threejs-game-skills](https://github.com/majidmanzarpour/threejs-game-skills) and skills from [skills.sh](https://skills.sh).
 
 MIT licence.
-
-☕ like it? [buy me a coffee](https://buymeacoffee.com/prasenx) or [sponsor on github](https://github.com/sponsors/StarKnightt)
